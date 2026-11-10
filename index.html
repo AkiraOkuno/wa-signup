@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Connect WhatsApp</title></head>
+<body style="font-family:sans-serif;padding:24px">
+  <button id="go" style="font-size:18px;padding:12px 20px">Connect my WhatsApp Business app</button>
+  <pre id="log" style="white-space:pre-wrap"></pre>
+
+  <script>
+    const APP_ID = "1931009114530630";
+    const CONFIG_ID = "PASTE_CONFIG_ID";
+    const ONBOARD_URL = "https://erlcpyhcdejztinwheve.supabase.co/functions/v1/wa-onboard";
+
+    let code = null, wabaId = null, done = false;
+    const log = (t) => (document.getElementById("log").textContent += t + "\n");
+
+    window.fbAsyncInit = () =>
+      FB.init({ appId: APP_ID, autoLogAppEvents: true, xfbml: true, version: "v23.0" });
+
+    window.addEventListener("message", (e) => {
+      if (!e.origin.endsWith("facebook.com")) return;
+      try {
+        const d = JSON.parse(e.data);
+        if (d.type === "WA_EMBEDDED_SIGNUP") {
+          log("Meta says: " + d.event);
+          if (d.data && d.data.waba_id) { wabaId = d.data.waba_id; finish(); }
+        }
+      } catch (_) {}
+    });
+
+    async function finish() {
+      if (!code || !wabaId || done) return;
+      done = true;
+      log("Finishing setup, please wait...");
+      const r = await fetch(ONBOARD_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, waba_id: wabaId }),
+      });
+      log(JSON.stringify(await r.json(), null, 2));
+    }
+
+    document.getElementById("go").onclick = () => {
+      FB.login((res) => {
+        if (res.authResponse && res.authResponse.code) { code = res.authResponse.code; finish(); }
+        else log("Cancelled or failed: " + JSON.stringify(res));
+      }, {
+        config_id: CONFIG_ID,
+        response_type: "code",
+        override_default_response_type: true,
+        extras: { setup: {}, featureType: "whatsapp_business_app_onboarding", sessionInfoVersion: "3" },
+      });
+    };
+  </script>
+  <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+</body>
+</html>
